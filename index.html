@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luminous Rift</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Orbitron', monospace;
+            cursor: none;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            filter: contrast(1.1) brightness(1.1);
+        }
+        .ui {
+            position: absolute;
+            color: #0ff;
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            font-weight: 700;
+            padding: 10px 15px; /* Adjusted padding for backdrop */
+            z-index: 10;
+            text-shadow: 0 0 10px #0ff, 0 0 20px #0ff, 0 0 30px #0ff;
+            letter-spacing: 2px;
+            background-color: rgba(0, 0, 0, 0.6); /* Added backdrop */
+            border-radius: 5px; /* Added rounded corners */
+        }
+        .score {
+            top: 10px;
+            left: 10px;
+        }
+        .health {
+            top: 10px;
+            right: 10px;
+        }
+        /* Removed .instructions styling as the element will be removed from HTML */
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0ff;
+            font-size: 48px;
+            text-align: center;
+            display: none;
+            z-index: 100;
+            text-shadow: 0 0 20px #0ff, 0 0 40px #0ff, 0 0 60px #0ff;
+            animation: pulse 2s ease-in-out infinite;
+            background-color: rgba(0, 0, 0, 0.7); /* Added backdrop */
+            padding: 30px 40px; /* Added padding for backdrop */
+            border-radius: 10px; /* Added rounded corners */
+        }
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+        .restart-btn {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: rgba(0, 0, 0, 0.8); /* Changed to a solid background for readability */
+            border: 2px solid #0ff;
+            color: #0ff;
+            font-family: 'Orbitron', monospace;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+            letter-spacing: 3px;
+            border-radius: 5px; /* Added rounded corners */
+        }
+        .restart-btn:hover {
+            background: #0ff;
+            color: #000;
+            box-shadow: 0 0 20px #0ff;
+        }
+        .dream-mode-indicator {
+            position: absolute;
+            top: 100px; /* Adjusted from 50% to a fixed value to prevent overlap */
+            right: 10px;
+            /* Removed transform: translateY(-50%); as top is now fixed */
+            color: #f0f;
+            font-size: 24px;
+            display: none;
+            animation: glow 1s ease-in-out infinite alternate;
+            background-color: rgba(0, 0, 0, 0.6); /* Added backdrop */
+            padding: 8px 12px; /* Added padding for backdrop */
+            border-radius: 5px; /* Added rounded corners */
+        }
+        @keyframes glow {
+            from { text-shadow: 0 0 10px #f0f, 0 0 20px #f0f; }
+            to { text-shadow: 0 0 20px #f0f, 0 0 30px #f0f, 0 0 40px #f0f; }
+        }
+        /* -------------- SPLASH -------------- */
+        #splash{
+          position:fixed;
+          inset:0;
+          background:#000;
+          display:flex;
+          flex-direction: column;
+          align-items:center;
+          justify-content:center;
+          z-index:1000;
+          transition:opacity .6s ease-out;
+          gap: 20px; /* Reduced gap for better vertical distribution */
+          padding: 20px; /* Add padding to prevent content from touching edges */
+          box-sizing: border-box; /* Include padding in element's total width and height */
+        }
+        #splash.hidden{
+            opacity:0;
+            pointer-events:none;
+        }
+        /* animated title */
+        #title{
+          font-size:clamp(32px,6vw,80px);
+          font-weight:900;
+          color:#0ff;
+          text-shadow:
+            0 0 8px #0ff,
+            0 0 16px #0ff,
+            0 0 32px #0ff,
+            0 0 64px #0ff;
+          letter-spacing:.15em;
+          animation:titlePulse 2.2s ease-in-out infinite;
+          text-align: center; /* Ensure text is centered within its flexible container */
+          max-width: 90%; /* Prevent title from overflowing on very small screens */
+        }
+        @keyframes titlePulse{
+          0%,100%{transform:scale(1);}
+          50%{transform:scale(1.05);}
+        }
+        /* rotating mandala behind title */
+        #mandalaWrap{
+          position:absolute; /* Keep absolute for background effect */
+          width:min(45vw,45vh);
+          height:min(45vw,45vh);
+          animation:spin 20s linear infinite;
+          top: 50%; /* Center vertically */
+          left: 50%; /* Center horizontally */
+          transform: translate(-50%, -50%); /* Adjust for element's own size */
+          z-index: 999; /* Ensure it's behind text but above canvas */
+        }
+        @keyframes spin{
+            to{transform:rotate(360deg);}
+        }
+        /* start button */
+        #startBtn, #infoBtn{ /* Combined styles for both buttons */
+          padding:16px 48px;
+          font-size:clamp(18px, 3vw, 24px); /* Responsive font size */
+          font-family:'Orbitron',monospace;
+          font-weight:700;
+          color:#000;
+          background:#0ff;
+          border:none;
+          border-radius:4px;
+          cursor:pointer;
+          letter-spacing:3px;
+          box-shadow:0 0 20px #0ff, inset 0 0 8px #fff;
+          transition:all .3s;
+          z-index: 1001; /* Ensure button is above mandala and other elements */
+          /* Removed margin-top here as gap property on #splash handles spacing */
+        }
+        #startBtn:hover, #infoBtn:hover{ /* Combined hover styles */
+          background:#fff;
+          box-shadow:0 0 30px #0ff, inset 0 0 12px #0ff;
+          transform:scale(1.08);
+        }
+        /* instructions at bottom */
+        #info{
+          position:relative; /* Change to relative to flow with flexbox */
+          bottom: auto; /* Remove fixed bottom positioning */
+          left: auto; /* Remove fixed left positioning */
+          transform: none; /* Remove transform for flexbox flow */
+          color:#0ff;
+          font-size:clamp(12px, 2vw, 14px); /* Responsive font size */
+          text-align:center;
+          line-height:1.6;
+          opacity:.8;
+          z-index: 1001; /* Ensure info is above mandala */
+          /* Removed margin-top here as gap property on #splash handles spacing */
+          max-width: 90%; /* Prevent text from overflowing */
+        }
+
+        /* Boss Health Bar */
+        #bossHealthBarContainer {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40%; /* Adjust width as needed */
+            height: 20px;
+            background-color: rgba(0, 0, 0, 0.6);
+            border: 2px solid #f00;
+            border-radius: 5px;
+            overflow: hidden;
+            display: none; /* Hidden by default */
+            z-index: 10;
+        }
+
+        #bossHealthBar {
+            height: 100%;
+            width: 100%; /* Will be updated by JS */
+            background-color: #f00;
+            transition: width 0.1s linear;
+        }
+
+        /* Level Up Message */
+        #levelUpMessage {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0ff;
+            font-size: 60px;
+            font-weight: 900;
+            text-align: center;
+            text-shadow: 0 0 20px #0ff, 0 0 40px #0ff, 0 0 60px #0ff;
+            z-index: 100;
+            display: none; /* Hidden by default */
+        }
+        #levelName {
+            font-size: 30px;
+            margin-top: 10px;
+        }
+
+        /* Info Screen Modal */
+        #infoScreen {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1002; /* Above splash screen */
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-out;
+        }
+        #infoScreen.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #infoContent {
+            background-color: rgba(0, 0, 0, 0.9);
+            border: 2px solid #0ff;
+            border-radius: 10px;
+            padding: 30px;
+            margin: auto; /* Center the box */
+            max-width: 80vw; /* Responsive width */
+            max-height: 80vh; /* Responsive height */
+            overflow-y: auto; /* Enable scrolling for content overflow */
+            color: #0ff;
+            font-family: 'Orbitron', monospace;
+            text-shadow: 0 0 5px #0ff;
+            position: relative; /* For close button positioning */
+        }
+
+        #infoContent h2 {
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
+            margin-top: 0;
+            font-size: clamp(24px, 4vw, 36px);
+            border-bottom: 1px solid rgba(0, 255, 255, 0.5);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        #infoContent h3 {
+            color: #0ff;
+            text-shadow: 0 0 8px #0ff;
+            margin-top: 25px;
+            margin-bottom: 10px;
+            font-size: clamp(18px, 3vw, 28px);
+        }
+
+        #infoContent p, #infoContent ul {
+            font-size: clamp(14px, 2vw, 16px);
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        #infoContent ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        #infoContent ul li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        #infoContent ul li::before {
+            content: '»'; /* Custom bullet point */
+            color: #0ff;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        #infoScreen .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: 2px solid #0ff;
+            color: #0ff;
+            font-family: 'Orbitron', monospace;
+            font-size: 24px;
+            padding: 5px 15px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+            z-index: 1003;
+        }
+
+        #infoScreen .close-btn:hover {
+            background: #0ff;
+            color: #000;
+            box-shadow: 0 0 15px #0ff;
+        }
+    </style>
+</head>
+<body>
+    <div id="splash">
+        <div id="mandalaWrap">
+            <svg viewBox="0 0 100 100" fill="none" stroke="#0ff" stroke-width="1" opacity="0.4">
+                <circle cx="50" cy="50" r="45"/>
+                <circle cx="50" cy="50" r="35"/>
+                <circle cx="50" cy="50" r="25"/>
+                <path d="M50 5 L50 95 M5 50 L95 50"/>
+                <path d="M14.64 14.64 L85.36 85.36 M14.64 85.36 L85.36 14.64"/>
+                <path d="M50 5 C75 5 95 25 95 50 C95 75 75 95 50 95 C25 95 5 75 5 50 C5 25 25 5 50 5 Z"/>
+            </svg>
+        </div>
+        <h1 id="title">LUMINOUS RIFT</h1>
+        <button id="startBtn">ENTER THE RIFT</button>
+        <button id="infoBtn">INFO</button> <!-- New INFO button -->
+        <div id="info">
+            CONTROLS:<br>
+            ARROWS: STEER | SPACE: FIRE | ESC: DREAM MODE (KONAMI CODE: ↑↑↓↓←→←→BA)
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <div class="ui score">SCORE: <span id="scoreValue">0</span></div>
+    <div class="ui health">RIFT: <span id="healthValue">3</span></div>
+    
+    <div class="ui combo" id="comboDisplay" style="top: 70px; left: 10px; display: none;">COMBO: x<span id="comboValue">1</span></div>
+
+    <div id="bossHealthBarContainer">
+        <div id="bossHealthBar"></div>
+    </div>
+
+    <div id="levelUpMessage" style="display: none;">
+        LEVEL UP!
+        <div id="levelName"></div>
+    </div>
+
+    <div class="game-over" id="gameOver">
+        RIFT COLLAPSED
+        <br>
+        <button class="restart-btn" onclick="restartGame()">RESTART</button>
+    </div>
+    <div class="dream-mode-indicator" id="dreamIndicator">DREAM MODE</div>
+
+    <!-- Info Screen Modal -->
+    <div id="infoScreen">
+        <div id="infoContent">
+            <button class="close-btn" id="closeInfoBtn">X</button>
+            <h2>LUMINOUS RIFT</h2>
+            
+            <h3>Controls</h3>
+            <ul>
+                <li><b>ARROWS:</b> Steer your Conduit Pilot ship.</li>
+                <li><b>SPACE:</b> Fire your primary weapon.</li>
+                <li><b>ESC:</b> Toggle Dream Mode (also activated by Konami Code: ↑↑↓↓←→←→BA).</li>
+            </ul>
+
+            <h3>Game Philosophy</h3>
+            <p>
+                Luminous Rift is designed to be a dynamic and challenging arcade experience. 
+                Our core philosophy centers on fluid gameplay, responsive controls, and a sense of constant progression. 
+                We aim to provide a visually engaging journey through an ever-changing digital landscape, 
+                where quick reflexes and strategic power-up usage are key to survival.
+            </p>
+
+            <h3>Lore of the Luminous Rift</h3>
+            <p>
+                You are a <b>Conduit Pilot</b>, tasked with navigating the volatile dimensional anomaly known as the 
+                <b>Luminous Rift</b>. This rift is a tear in the fabric of reality, a conduit between realms, 
+                and it's rapidly expanding. Within its shimmering depths, pure data manifests as chaotic entities.
+            </p>
+            <p>
+                The enemies you encounter are not living beings, but corrupted data fragments and rogue algorithms, 
+                bent on destabilizing the rift further. Their patterns are unpredictable, their attacks relentless. 
+                Your mission is to cleanse these manifestations and stabilize the rift's integrity.
+            </p>
+            <p>
+                Periodically, the rift coalesces into a <b>Core Anomaly</b>—a massive, singular entity of concentrated chaos. 
+                These bosses are the source of much of the rift's instability and must be neutralized to progress deeper.
+            </p>
+            <p>
+                <b>Dream Mode</b> is a unique state of hyper-awareness, a temporary synchronization with the rift's raw data stream. 
+                While active, the world shifts, and your perception is heightened, granting you an edge against the chaos. 
+                However, maintaining this state is taxing, and it can only be sustained for short bursts.
+            </p>
+            <p>
+                Power-ups are fragments of stable code and energy signatures, left behind by previous, failed attempts 
+                to traverse the Rift, or spontaneously generated by its fluctuating energies. Collect them to enhance your ship's capabilities 
+                and stand a chance against the escalating threat.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // Game state
+        let score = 0;
+        let health = 3;
+        let gameActive = false; 
+        let dreamMode = false;
+        let konamiCode = [];
+        const konamiSequence = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65]; 
+        
+        let comboCounter = 0;
+        let lastEnemyDestroyTime = 0;
+        const comboWindow = 1000; // 1 second to continue combo
+
+        // Audio context
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let backgroundOscillator, backgroundGain; 
+        
+        // Game objects
+        let player = {
+            x: canvas.width / 2,
+            y: canvas.height * 0.8,
+            width: 20,
+            height: 30,
+            speed: 5,
+            color: '#0ff',
+            fireRate: 10, 
+            lastFireTime: 0,
+            shielded: false,
+            multiShot: false,
+            powerUpTimers: {
+                shield: 0,
+                rapidFire: 0,
+                multiShot: 0
+            }
+        };
+        
+        let projectiles = [];
+        let enemies = [];
+        let enemyProjectiles = []; 
+        let particles = [];
+        let tunnelSegments = [];
+        let stars = []; 
+        let powerUps = []; 
+
+        let boss = null; // Boss object, null when not active
+        // Removed BOSS_SCORE_INCREMENT and nextBossScore as they are replaced by level-based triggers
+        // const BOSS_SCORE_INCREMENT = 1000;
+        // let nextBossScore = 500;
+
+        // New state for level-based boss spawning
+        let awaitingBossDefeatForLevelUp = false;
+
+        // Level Progression Configuration
+        const levels = [
+            {
+                id: 0,
+                name: "The Genesis Rift",
+                scoreThreshold: 0, // Starting level, no boss to reach it
+                tunnelColorHueBase: 180, // Cyan/Blue
+                enemySpeedMultiplier: 1.0,
+                enemyHealthMultiplier: 1.0,
+                enemySpawnRateModifier: 0.00,
+                powerUpSpawnRateModifier: 0.00,
+                musicNotes: [220, 261.63, 329.63, 261.63] // A3, C4, E4, C4
+            },
+            {
+                id: 1,
+                name: "Crimson Vortex",
+                scoreThreshold: 1000, // Reach this score to trigger boss for Level 0, then progress to Level 1
+                tunnelColorHueBase: 0, // Red
+                enemySpeedMultiplier: 1.2,
+                enemyHealthMultiplier: 1.2,
+                enemySpawnRateModifier: 0.005,
+                powerUpSpawnRateModifier: 0.001,
+                musicNotes: [261.63, 329.63, 392.00, 329.63] // C4, E4, G4, E4
+            },
+            {
+                id: 2,
+                name: "Emerald Labyrinth",
+                scoreThreshold: 3000, // Reach this score to trigger boss for Level 1, then progress to Level 2
+                tunnelColorHueBase: 120, // Green
+                enemySpeedMultiplier: 1.4,
+                enemyHealthMultiplier: 1.4,
+                enemySpawnRateModifier: 0.01,
+                powerUpSpawnRateModifier: 0.002,
+                musicNotes: [293.66, 349.23, 440.00, 349.23] // D4, F4, A4, F4
+            },
+            {
+                id: 3,
+                name: "Violet Nebula",
+                scoreThreshold: 6000, // Reach this score to trigger boss for Level 2, then progress to Level 3
+                tunnelColorHueBase: 270, // Violet
+                enemySpeedMultiplier: 1.6,
+                enemyHealthMultiplier: 1.6,
+                enemySpawnRateModifier: 0.015,
+                powerUpSpawnRateModifier: 0.003,
+                musicNotes: [329.63, 392.00, 493.88, 392.00] // E4, G4, B4, G4
+            }
+            // Add more levels here as desired
+        ];
+        let currentLevel = 0;
+        let levelUpDisplayTimer = 0; // Timer for level up message display
+        const LEVEL_UP_DISPLAY_DURATION = 120; // Frames to display "Level Up!" message (~2 seconds at 60fps)
+        
+        // Game parameters (initial values, will be updated by level settings)
+        let tunnelSpeed = 2;
+        let enemySpawnRate = 0.02;
+        let powerUpSpawnRate = 0.005; 
+        let time = 0;
+        let mouseX = 0, mouseY = 0; 
+        
+        // Initialize game
+        function init() {
+            // Create initial tunnel segments
+            for (let i = 0; i < 15; i++) { 
+                tunnelSegments.push({
+                    z: i * 50,
+                    rotation: 0,
+                    shapeType: getRandomTunnelShape(), 
+                    mandala: generateShape(getRandomTunnelShape(), 8 + Math.floor(i/3)) 
+                });
+            }
+
+            // Initialize parallax stars
+            for (let i = 0; i < 100; i++) { 
+                stars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 0.5,
+                    zMultiplier: Math.random() * 0.5 + 0.1, 
+                    color: `rgba(255, 255, 255, ${Math.random() * 0.8 + 0.2})`
+                });
+            }
+            
+            // Setup audio components
+            setupAudio();
+            // Apply initial level 0 settings
+            applyLevelSettings();
+        }
+
+        // Function to apply current level's game settings
+        function applyLevelSettings() {
+            const level = levels[currentLevel];
+            tunnelSpeed = 2 * level.enemySpeedMultiplier; 
+            enemySpawnRate = 0.02 + level.enemySpawnRateModifier; 
+            powerUpSpawnRate = 0.005 + level.powerUpSpawnRateModifier;
+
+            // Update background music with new notes for the current level
+            startBackgroundMusic(); 
+        }
+
+        // Function to get a random tunnel shape type
+        function getRandomTunnelShape() {
+            const shapes = ['mandala', 'triangle', 'square', 'hexagon'];
+            return shapes[Math.floor(Math.random() * shapes.length)];
+        }
+
+        // Generate various shapes (mandala or polygons)
+        function generateShape(type, points) {
+            const shapePoints = [];
+            if (type === 'mandala') {
+                for (let i = 0; i < points; i++) {
+                    const angle = (i / points) * Math.PI * 2;
+                    const radius = 50 + Math.sin(angle * 3) * 20;
+                    shapePoints.push({ angle, radius });
+                }
+            } else {
+                let numSides;
+                if (type === 'triangle') numSides = 3;
+                else if (type === 'square') numSides = 4;
+                else if (type === 'hexagon') numSides = 6;
+                else numSides = points; 
+
+                const baseRadius = 50; 
+                for (let i = 0; i < numSides; i++) {
+                    const angle = (i / numSides) * Math.PI * 2;
+                    shapePoints.push({ angle, radius: baseRadius });
+                }
+            }
+            return shapePoints;
+        }
+        
+        // Setup audio synthesis components (oscillators, gains)
+        function setupAudio() {
+            backgroundOscillator = audioContext.createOscillator();
+            backgroundGain = audioContext.createGain();
+
+            backgroundOscillator.type = 'sine'; 
+            backgroundOscillator.frequency.setValueAtTime(0, audioContext.currentTime); 
+            backgroundGain.gain.setValueAtTime(0, audioContext.currentTime); 
+
+            backgroundOscillator.connect(backgroundGain);
+            backgroundGain.connect(audioContext.destination);
+            backgroundOscillator.start();
+        }
+
+        /**
+         * Plays a short synthetic sound.
+         * @param {number} frequency - The frequency of the sound in Hz.
+         * @param {number} duration - The total duration of the sound in seconds.
+         * @param {string} type - The waveform type ('sine', 'square', 'sawtooth', 'triangle').
+         * @param {number} attack - The attack time in seconds (how quickly the sound fades in).
+         * @param {number} decay - The decay time in seconds (how quickly the sound fades out after attack).
+         * @param {number} volume - The peak volume (gain) of the sound.
+         */
+        function playSynthSound(frequency, duration, type = 'square', attack = 0.01, decay = 0.1, volume = 0.1) {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            osc.type = type;
+            osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+            gain.gain.setValueAtTime(0, audioContext.currentTime);
+            gain.gain.linearRampToValueAtTime(volume, audioContext.currentTime + attack);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + attack + decay); 
+
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+
+            osc.start(audioContext.currentTime);
+            osc.stop(audioContext.currentTime + attack + decay + 0.05); 
+        }
+
+        // Specific sound effects for 80s arcade feel
+        function playProjectileSound() {
+            playSynthSound(880, 0.05, 'square', 0.005, 0.03, 0.1); 
+        }
+
+        function playEnemyHitSound() {
+            playSynthSound(440, 0.1, 'sawtooth', 0.01, 0.08, 0.15); 
+        }
+
+        function playPlayerHitSound() {
+            playSynthSound(100, 0.2, 'sawtooth', 0.01, 0.15, 0.2);
+            playSynthSound(90, 0.2, 'sawtooth', 0.01, 0.15, 0.2); 
+        }
+
+        function playGameOverSound() {
+            playSynthSound(300, 0.2, 'square', 0.05, 0.15, 0.2);
+            setTimeout(() => playSynthSound(200, 0.2, 'square', 0.05, 0.15, 0.2), 100);
+            setTimeout(() => playSynthSound(100, 0.2, 'square', 0.05, 0.15, 0.2), 200);
+        }
+
+        function playDreamModeToggleSound() {
+            if (dreamMode) { 
+                playSynthSound(400, 0.1, 'sine', 0.02, 0.08, 0.1);
+                setTimeout(() => playSynthSound(500, 0.1, 'sine', 0.02, 0.08, 0.1), 50);
+                setTimeout(() => playSynthSound(600, 0.1, 'sine', 0.02, 0.08, 0.1), 100);
+            } else { 
+                playSynthSound(600, 0.1, 'sine', 0.02, 0.08, 0.1);
+                setTimeout(() => playSynthSound(500, 0.1, 'sine', 0.02, 0.08, 0.1), 50);
+                setTimeout(() => playSynthSound(400, 0.1, 'sine', 0.02, 0.08, 0.1), 100);
+            }
+        }
+
+        function playPowerUpSound() {
+            playSynthSound(1000, 0.08, 'triangle', 0.01, 0.05, 0.2);
+            playSynthSound(1200, 0.08, 'triangle', 0.01, 0.05, 0.2);
+        }
+
+        function playEnemyShootSound() {
+            playSynthSound(300, 0.05, 'sawtooth', 0.01, 0.03, 0.08);
+        }
+
+        function playBossHitSound() {
+            playSynthSound(150, 0.1, 'square', 0.01, 0.05, 0.2);
+            playSynthSound(160, 0.1, 'square', 0.01, 0.05, 0.2);
+        }
+
+        function playBossDefeatedSound() {
+            playSynthSound(800, 0.3, 'sine', 0.05, 0.2, 0.3);
+            setTimeout(() => playSynthSound(1000, 0.3, 'sine', 0.05, 0.2, 0.3), 100);
+            setTimeout(() => playSynthSound(1200, 0.3, 'sine', 0.05, 0.2, 0.3), 200);
+        }
+
+        function playLevelUpSound() {
+            playSynthSound(600, 0.1, 'sine', 0.02, 0.05, 0.1);
+            setTimeout(() => playSynthSound(800, 0.1, 'sine', 0.02, 0.05, 0.1), 50);
+            setTimeout(() => playSynthSound(1000, 0.1, 'sine', 0.02, 0.05, 0.1), 100);
+        }
+
+        // Background music loop
+        let backgroundMusicInterval;
+        function startBackgroundMusic() {
+            let noteIndex = 0;
+            const currentNotes = levels[currentLevel].musicNotes;
+            // Set initial gain for regular play or resume
+            backgroundGain.gain.setTargetAtTime(0.02, audioContext.currentTime, 0.5); 
+
+            clearInterval(backgroundMusicInterval); // Clear existing interval
+            backgroundMusicInterval = setInterval(() => {
+                if (gameActive) { // Always update notes if game is active
+                    // Adjust oscillator type and gain based on dream mode
+                    if (dreamMode) {
+                        backgroundOscillator.type = 'triangle'; // Change to a softer, dreamier wave
+                        backgroundGain.gain.setTargetAtTime(0.01, audioContext.currentTime, 0.1); // Slightly lower volume
+                        backgroundOscillator.frequency.setTargetAtTime(currentNotes[noteIndex % currentNotes.length] * 0.9, audioContext.currentTime, 0.05); // Slightly detune
+                    } else {
+                        backgroundOscillator.type = 'sine'; // Revert to original wave
+                        backgroundGain.gain.setTargetAtTime(0.02, audioContext.currentTime, 0.1); // Original volume
+                        backgroundOscillator.frequency.setTargetAtTime(currentNotes[noteIndex % currentNotes.length], audioContext.currentTime, 0.05);
+                    }
+                    noteIndex++;
+                } else { // If game is not active, fade out music
+                    backgroundGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.5);
+                }
+            }, 500); 
+        }
+
+        function stopBackgroundMusic() {
+            clearInterval(backgroundMusicInterval);
+            backgroundGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.5); 
+        }
+        
+        // Event listeners
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            player.x = canvas.width / 2;
+            player.y = canvas.height * 0.8;
+            // Adjust boss position if active and canvas resized
+            if (boss) {
+                boss.x = Math.max(BOSS_HORIZONTAL_PADDING, Math.min(canvas.width - BOSS_HORIZONTAL_PADDING - boss.width, boss.x));
+            }
+        });
+        
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            
+            konamiCode.push(e.keyCode);
+            if (konamiCode.length > konamiSequence.length) {
+                konamiCode.shift();
+            }
+            
+            if (JSON.stringify(konamiCode) === JSON.stringify(konamiSequence)) {
+                toggleDreamMode();
+                konamiCode = [];
+            }
+            
+            if (e.key === 'Escape') {
+                toggleDreamMode();
+            }
+            
+            if (e.key === ' ' && gameActive) {
+                const currentTime = audioContext.currentTime;
+                const fireDelay = 1 / player.fireRate;
+                if (currentTime - player.lastFireTime > fireDelay) {
+                    fireProjectile();
+                    player.lastFireTime = currentTime;
+                }
+            }
+
+            // Handle Enter key for buttons
+            if (e.key === 'Enter') {
+                const gameOverScreen = document.getElementById('gameOver');
+                const splashScreen = document.getElementById('splash');
+
+                if (gameOverScreen.style.display === 'block') {
+                    restartGame();
+                } else if (splashScreen.style.display !== 'none') {
+                    startGame();
+                }
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+        
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        
+        // Toggle dream mode
+        function toggleDreamMode() {
+            // Only allow dream mode toggle if the game is active
+            if (!gameActive) {
+                return;
+            }
+
+            dreamMode = !dreamMode;
+            const indicator = document.getElementById('dreamIndicator');
+            
+            playDreamModeToggleSound(); 
+
+            if (dreamMode) {
+                document.body.style.filter = 'invert(1) hue-rotate(180deg)';
+                // Music changes handled by startBackgroundMusic interval
+                indicator.style.display = 'block';
+            } else {
+                document.body.style.filter = 'none';
+                // Music changes handled by startBackgroundMusic interval
+                indicator.style.display = 'none';
+            }
+        }
+        
+        // Fire projectile (player)
+        function fireProjectile() {
+            if (player.multiShot) {
+                projectiles.push({
+                    x: player.x - 10, y: player.y - player.height / 2, width: 4, height: 15, speed: 10, color: dreamMode ? '#f0f' : '#0ff'
+                });
+                projectiles.push({
+                    x: player.x, y: player.y - player.height / 2, width: 4, height: 15, speed: 10, color: dreamMode ? '#f0f' : '#0ff'
+                });
+                projectiles.push({
+                    x: player.x + 10, y: player.y - player.height / 2, width: 4, height: 15, speed: 10, color: dreamMode ? '#f0f' : '#0ff'
+                });
+            } else {
+                projectiles.push({
+                    x: player.x, y: player.y - player.height / 2, width: 4, height: 15, speed: 10, color: dreamMode ? '#f0f' : '#0ff'
+                });
+            }
+            playProjectileSound(); 
+            
+            for (let i = 0; i < 5; i++) {
+                particles.push({
+                    x: player.x + (Math.random() - 0.5) * 20,
+                    y: player.y - player.height / 2,
+                    size: Math.random() * 5 + 2,
+                    speedX: (Math.random() - 0.5) * 3,
+                    speedY: -Math.random() * 3 - 1,
+                    color: dreamMode ? '#f0f' : '#0ff',
+                    life: 20
+                });
+            }
+        }
+
+        // Enemy projectile
+        function fireEnemyProjectile(enemy) {
+            enemyProjectiles.push({
+                x: enemy.x + enemy.width / 2,
+                y: enemy.y + enemy.height / 2,
+                width: 5,
+                height: 10,
+                speed: 5,
+                color: '#f00' // Red for enemy projectiles
+            });
+            playEnemyShootSound();
+        }
+
+        // Boss attack (aimed shot with deviation)
+        function bossAttack() {
+            if (!boss || !boss.isBossActive) return;
+
+            const numProjectiles = 3; // Fewer projectiles, but aimed
+            const projectileSpeed = 6;
+            const deviationAngle = Math.PI / 12; // +/- 15 degrees deviation
+
+            for (let i = 0; i < numProjectiles; i++) {
+                const angleToPlayer = Math.atan2(player.y - boss.y, player.x - boss.x);
+                const randomDeviation = (Math.random() - 0.5) * 2 * deviationAngle; // -deviation to +deviation
+                const finalAngle = angleToPlayer + randomDeviation;
+
+                enemyProjectiles.push({
+                    x: boss.x + boss.width / 2,
+                    y: boss.y + boss.height / 2,
+                    width: 8,
+                    height: 8,
+                    speed: projectileSpeed,
+                    color: '#f00',
+                    velX: Math.cos(finalAngle) * projectileSpeed,
+                    velY: Math.sin(finalAngle) * projectileSpeed
+                });
+            }
+            playEnemyShootSound(); 
+        }
+        
+        // Create enemy
+        function createEnemy() {
+            // Only spawn regular enemies if no boss is active and we are not awaiting a boss to level up
+            if (Math.random() < enemySpawnRate && gameActive && !boss && !awaitingBossDefeatForLevelUp) {
+                const enemyType = Math.random();
+                let newEnemy = {
+                    x: Math.random() * canvas.width,
+                    y: -30,
+                    width: 25 + Math.random() * 15,
+                    height: 25 + Math.random() * 15,
+                    speed: (2 + Math.random() * 2) * levels[currentLevel].enemySpeedMultiplier, // Apply level speed multiplier
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    rotation: 0,
+                    rotationSpeed: (Math.random() - 0.5) * 0.2,
+                    health: 1 * levels[currentLevel].enemyHealthMultiplier, // Apply level health multiplier
+                    movementType: 'straight', 
+                    canShoot: false,
+                    lastShotTime: 0,
+                    shootInterval: 2000 + Math.random() * 3000 
+                };
+
+                if (enemyType < 0.3) { 
+                    newEnemy.movementType = 'straight';
+                } else if (enemyType < 0.6) { 
+                    newEnemy.movementType = 'zigzag';
+                    newEnemy.zigZagAmplitude = 50 + Math.random() * 50;
+                    newEnemy.zigZagFrequency = 0.05 + Math.random() * 0.05;
+                    newEnemy.initialX = newEnemy.x;
+                } else if (enemyType < 0.8) { 
+                    newEnemy.movementType = 'homing';
+                    newEnemy.speed = (1.5 + Math.random() * 1.5) * levels[currentLevel].enemySpeedMultiplier; 
+                } else { 
+                    newEnemy.movementType = 'straight'; 
+                    newEnemy.canShoot = true;
+                    newEnemy.health = 2 * levels[currentLevel].enemyHealthMultiplier; 
+                    newEnemy.color = '#ff0'; 
+                }
+                enemies.push(newEnemy);
+            }
+        }
+
+        // Create power-up
+        function createPowerUp() {
+            // Only spawn power-ups if no boss is active and we are not awaiting a boss to level up
+            if (Math.random() < powerUpSpawnRate && gameActive && !boss && !awaitingBossDefeatForLevelUp) { 
+                const powerUpTypes = ['rapidFire', 'shield', 'multiShot', 'healthPack'];
+                const type = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+                let color, label;
+
+                switch(type) {
+                    case 'rapidFire': color = '#00f'; label = 'R'; break;
+                    case 'shield': color = '#fff'; label = 'S'; break;
+                    case 'multiShot': color = '#0f0'; label = 'M'; break;
+                    case 'healthPack': color = '#f00'; label = 'H'; break;
+                }
+
+                powerUps.push({
+                    x: Math.random() * canvas.width,
+                    y: -20,
+                    width: 20,
+                    height: 20,
+                    speed: 3,
+                    color: color,
+                    type: type,
+                    label: label
+                });
+            }
+        }
+
+        // Boss constants
+        const BOSS_TARGET_Y = 0.2; // Boss stops at 20% down the screen
+        const BOSS_HORIZONTAL_SPEED = 2; // Speed of boss horizontal movement
+        const BOSS_HORIZONTAL_PADDING = 50; // Padding from canvas edges for boss movement
+
+        // Spawn Boss - now scales with currentLevel
+        function spawnBoss() {
+            if (boss === null) { // Only spawn if no boss is currently active
+                // Scale boss health and attack interval based on currentLevel
+                // Adjust these multipliers for desired difficulty progression
+                // currentLevel is the level that the boss is *for* (i.e., to pass to the next level)
+                const effectiveLevel = currentLevel + 1; // Use next level for scaling if boss is for current level completion
+                const healthMultiplier = 1 + effectiveLevel * 0.5; // Boss gets 50% more health per effective level
+                const attackSpeedMultiplier = 1 + effectiveLevel * 0.1; // Boss attacks 10% faster per effective level
+
+                boss = {
+                    x: canvas.width / 2 - 50,
+                    y: -100, // Start off-screen
+                    width: 100,
+                    height: 100,
+                    speed: 1, // Slower vertical movement
+                    horizontalSpeed: BOSS_HORIZONTAL_SPEED, // New: horizontal speed
+                    direction: 1, // New: 1 for right, -1 for left
+                    color: '#f0f', // Distinct boss color
+                    rotation: 0,
+                    rotationSpeed: 0.01,
+                    maxHealth: 60 * healthMultiplier, // Scaled health
+                    health: 60 * healthMultiplier,    // Scaled health
+                    isBossActive: true,
+                    phase: 1, 
+                    lastAttackTime: 0,
+                    attackInterval: 1500 / attackSpeedMultiplier // Scaled attack speed
+                };
+                enemies = []; // Clear regular enemies when boss spawns
+                powerUps = []; // Clear power-ups
+                enemyProjectiles = []; // Clear enemy projectiles
+                document.getElementById('bossHealthBarContainer').style.display = 'block';
+                document.getElementById('bossHealthBar').style.width = `${(boss.health / boss.maxHealth) * 100}%`;
+            }
+        }
+        
+        // Update game objects
+        function update() {
+            if (!gameActive) return;
+            
+            time += 0.01;
+            const currentTime = audioContext.currentTime;
+
+            // Check for level progression / boss spawn
+            // If score reaches next level's threshold AND no boss is active AND we are not already awaiting a boss defeat to level up
+            if (currentLevel + 1 < levels.length && score >= levels[currentLevel + 1].scoreThreshold &&
+                boss === null && !awaitingBossDefeatForLevelUp) {
+                
+                awaitingBossDefeatForLevelUp = true; // Set flag: we are now fighting the boss to level up
+                spawnBoss(); // Spawn the boss for the current level
+                // Do NOT increment currentLevel here. It happens AFTER boss defeat.
+                // The levelUpDisplayTimer will be triggered after boss defeat as well.
+            }
+
+            // Flag to check if boss was defeated in this frame
+            let bossWasDefeatedThisFrame = false;
+
+            // Update power-up timers
+            for (const key in player.powerUpTimers) {
+                if (player.powerUpTimers[key] > 0) {
+                    player.powerUpTimers[key] -= (1000 / 60); 
+                    if (player.powerUpTimers[key] <= 0) {
+                        switch(key) {
+                            case 'shield': player.shielded = false; console.log('Shield expired'); break;
+                            case 'rapidFire': player.fireRate = 10; console.log('Rapid Fire expired'); break;
+                            case 'multiShot': player.multiShot = false; console.log('Multi-shot expired'); break;
+                        }
+                        player.powerUpTimers[key] = 0;
+                    }
+                }
+            }
+            
+            // Move player
+            if (keys['ArrowLeft'] && player.x > player.width / 2) {
+                player.x -= player.speed;
+            }
+            if (keys['ArrowRight'] && player.x < canvas.width - player.width / 2) {
+                player.x += player.speed;
+            }
+            if (keys['ArrowUp'] && player.y > player.height / 2) {
+                player.y -= player.speed;
+            }
+            if (keys['ArrowDown'] && player.y < canvas.height - player.height / 2) {
+                player.y += player.speed;
+            }
+            
+            // Update tunnel segments
+            tunnelSegments.forEach(segment => {
+                segment.z -= tunnelSpeed;
+                segment.rotation += 0.01;
+                
+                if (segment.z < -50) {
+                    segment.z = (tunnelSegments.length - 1) * 50 + 50; 
+                    segment.shapeType = getRandomTunnelShape(); 
+                    segment.mandala = generateShape(getRandomTunnelShape(), 8 + Math.floor(Math.random() * 5)); 
+                }
+            });
+
+            // Update parallax stars
+            stars.forEach(star => {
+                star.y += tunnelSpeed * star.zMultiplier; 
+                if (star.y > canvas.height) {
+                    star.y = -star.size; 
+                    star.x = Math.random() * canvas.width;
+                }
+            });
+            
+            // Update projectiles (player)
+            projectiles = projectiles.filter(p => {
+                p.y -= p.speed;
+                return p.y > 0; // Keep if still on screen
+            });
+
+            // Update enemy projectiles
+            enemyProjectiles = enemyProjectiles.filter(ep => {
+                // Defensive check: if ep is null or undefined, filter it out immediately.
+                if (!ep) {
+                    return false;
+                }
+
+                // For regular enemy projectiles (those without velX/velY for boss attacks)
+                if (ep.velX === undefined || ep.velX === null) {
+                    ep.y += ep.speed;
+                } else { // For boss projectiles (with velX/velY)
+                    ep.x += ep.velX;
+                    ep.y += ep.velY;
+                }
+
+                // Collision with player
+                if (
+                    player.x < ep.x + ep.width &&
+                    player.x + player.width > ep.x &&
+                    player.y < ep.y + ep.height &&
+                    player.y + player.height > ep.y
+                ) {
+                    if (!player.shielded) {
+                        health--;
+                        document.getElementById('healthValue').textContent = health;
+                        playPlayerHitSound();
+                        if (health <= 0) {
+                            gameOver();
+                        }
+                    } else {
+                        console.log("Shield absorbed hit!");
+                    }
+                    return false; // Remove projectile on collision
+                }
+
+                // Keep if still on screen
+                return ep.y < canvas.height && ep.x > -ep.width && ep.x < canvas.width + ep.width;
+            });
+            
+            // Create enemies or power-ups only if no boss is active and not awaiting a boss to level up
+            if (boss === null && !awaitingBossDefeatForLevelUp) {
+                createEnemy();
+                createPowerUp(); 
+            }
+            
+            // Update enemies (only if no boss is active and not awaiting a boss to level up)
+            if (boss === null && !awaitingBossDefeatForLevelUp) {
+                enemies = enemies.filter(enemy => {
+                    // Enemy movement logic
+                    if (enemy.movementType === 'straight') {
+                        enemy.y += enemy.speed;
+                    } else if (enemy.movementType === 'zigzag') {
+                        enemy.y += enemy.speed;
+                        enemy.x = enemy.initialX + Math.sin(time * enemy.zigZagFrequency) * enemy.zigZagAmplitude;
+                    } else if (enemy.movementType === 'homing') {
+                        const angle = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+                        enemy.x += Math.cos(angle) * enemy.speed;
+                        enemy.y += Math.sin(angle) * enemy.speed;
+                        enemy.rotation = angle + Math.PI / 2; 
+                    }
+                    enemy.rotation += enemy.rotationSpeed;
+
+                    // Enemy shooting logic
+                    if (enemy.canShoot && currentTime * 1000 - enemy.lastShotTime > enemy.shootInterval) {
+                        fireEnemyProjectile(enemy);
+                        enemy.lastShotTime = currentTime * 1000;
+                    }
+                    
+                    // Check collision with player
+                    if (
+                        player.x < enemy.x + enemy.width &&
+                        player.x + player.width > enemy.x &&
+                        player.y < enemy.y + enemy.height &&
+                        player.y + player.height > enemy.y
+                    ) {
+                        if (!player.shielded) {
+                            health--;
+                            document.getElementById('healthValue').textContent = health;
+                            playPlayerHitSound();
+                            if (health <= 0) {
+                                gameOver();
+                            }
+                        } else {
+                            console.log("Shield absorbed collision!");
+                        }
+                        // Create explosion particles
+                        for (let i = 0; i < 15; i++) {
+                            particles.push({
+                                x: enemy.x + enemy.width / 2,
+                                y: enemy.y + enemy.height / 2,
+                                size: Math.random() * 8 + 3,
+                                speedX: (Math.random() - 0.5) * 5,
+                                speedY: (Math.random() - 0.5) * 5,
+                                color: enemy.color,
+                                life: 30
+                            });
+                        }
+                        return false; // Remove enemy on collision
+                    }
+                    
+                    // Check projectile collisions
+                    let enemyStillAlive = true;
+                    projectiles = projectiles.filter(p => {
+                        if (
+                            enemyStillAlive && // Only check if enemy hasn't been destroyed by another projectile in this frame
+                            p.x < enemy.x + enemy.width &&
+                            p.x + p.width > enemy.x &&
+                            p.y < enemy.y + enemy.height &&
+                            p.y + p.height > enemy.y
+                        ) {
+                            enemy.health--;
+                            if (enemy.health <= 0) {
+                                // Combo system: check if last enemy was destroyed recently
+                                const now = Date.now();
+                                if (now - lastEnemyDestroyTime < comboWindow) {
+                                    comboCounter++;
+                                    document.getElementById('comboValue').textContent = comboCounter;
+                                    document.getElementById('comboDisplay').style.display = 'block';
+                                    score += 10 * comboCounter; // Bonus points for combo
+                                } else {
+                                    comboCounter = 1; // Start new combo
+                                    document.getElementById('comboValue').textContent = comboCounter;
+                                    document.getElementById('comboDisplay').style.display = 'block';
+                                    score += 10;
+                                }
+                                lastEnemyDestroyTime = now;
+                                document.getElementById('scoreValue').textContent = score;
+
+                                playEnemyHitSound(); 
+                                // Create explosion particles
+                                for (let i = 0; i < 10; i++) {
+                                    particles.push({
+                                        x: enemy.x + enemy.width / 2,
+                                        y: enemy.y + enemy.height / 2,
+                                        size: Math.random() * 6 + 2,
+                                        speedX: (Math.random() - 0.5) * 4,
+                                        speedY: (Math.random() - 0.5) * 4,
+                                        color: enemy.color,
+                                        life: 25
+                                    });
+                                }
+                                enemyStillAlive = false; // Mark enemy for removal
+                            } else {
+                                playSynthSound(600, 0.05, 'square', 0.01, 0.03, 0.05);
+                            }
+                            return false; // Remove player projectile
+                        }
+                        return true; // Keep player projectile
+                    });
+                    
+                    // Remove enemies that go off-screen or were destroyed by projectiles
+                    return enemy.y < canvas.height + 50 && enemyStillAlive;
+                });
+            } else { // Boss is active
+                // Move boss into view vertically
+                if (boss.y < canvas.height * BOSS_TARGET_Y) {
+                    boss.y += boss.speed;
+                } else {
+                    // Once at target Y, start horizontal movement
+                    boss.x += boss.horizontalSpeed * boss.direction;
+
+                    // Reverse direction if hitting horizontal boundaries
+                    if (boss.x <= BOSS_HORIZONTAL_PADDING || boss.x + boss.width >= canvas.width - BOSS_HORIZONTAL_PADDING) {
+                        boss.direction *= -1; // Reverse direction
+                        // Ensure boss stays within bounds after reversing
+                        if (boss.x < BOSS_HORIZONTAL_PADDING) {
+                            boss.x = BOSS_HORIZONTAL_PADDING;
+                        } else if (boss.x + boss.width > canvas.width - BOSS_HORIZONTAL_PADDING) {
+                            boss.x = canvas.width - BOSS_HORIZONTAL_PADDING - boss.width;
+                        }
+                    }
+                }
+                boss.rotation += boss.rotationSpeed;
+
+                // Boss attack logic
+                if (currentTime * 1000 - boss.lastAttackTime > boss.attackInterval) {
+                    bossAttack();
+                    boss.lastAttackTime = currentTime * 1000;
+                }
+
+                // Check player projectile collisions with boss
+                projectiles = projectiles.filter(p => {
+                    // Defensive check for boss. This is crucial if boss becomes null mid-filter.
+                    if (!boss) {
+                        return true; // Keep projectile if boss is already null (it will be handled next frame)
+                    }
+
+                    if (
+                        p.x < boss.x + boss.width &&
+                        p.x + p.width > boss.x &&
+                        p.y < boss.y + boss.height &&
+                        p.y + p.height > p.y
+                    ) {
+                        boss.health--;
+                        document.getElementById('bossHealthBar').style.width = `${(boss.health / boss.maxHealth) * 100}%`;
+                        playBossHitSound();
+
+                        if (boss.health <= 0) {
+                            bossWasDefeatedThisFrame = true; // Set flag instead of nulling immediately
+                            // Do not set boss = null here yet
+                            // Clear boss-related UI elements here
+                            document.getElementById('bossHealthBarContainer').style.display = 'none';
+                            comboCounter = 0; // Reset combo after boss
+                            document.getElementById('comboDisplay').style.display = 'none';
+                            enemies = []; // Ensure no lingering enemies
+                            enemyProjectiles = []; // Clear boss projectiles
+                        }
+                        return false; // Remove player projectile
+                    }
+                    return true; // Keep player projectile
+                });
+
+                // If boss was defeated in this frame, nullify it now after all projectile checks
+                if (bossWasDefeatedThisFrame) {
+                    playBossDefeatedSound();
+                    // Score bonus for defeating a boss, scaled by level
+                    score += 500 * (1 + currentLevel * 0.2); // Example: 500 base + 20% per level
+                    document.getElementById('scoreValue').textContent = score;
+                    
+                    // Create massive explosion particles for boss
+                    for (let i = 0; i < 100; i++) {
+                        particles.push({
+                            x: boss.x.toFixed(0), // Use fixed position before nulling
+                            y: boss.y.toFixed(0),
+                            size: Math.random() * 20 + 5,
+                            speedX: (Math.random() - 0.5) * 10,
+                            speedY: (Math.random() - 0.5) * 10,
+                            color: boss.color,
+                            life: 60
+                        });
+                    }
+                    boss = null; // Now it's safe to nullify the boss object
+                    // nextBossScore is no longer used for spawning, remove its update here
+                    // nextBossScore = score + BOSS_SCORE_INCREMENT; // REMOVED
+
+                    // Now, if we were awaiting a boss defeat to level up, perform the level up
+                    if (awaitingBossDefeatForLevelUp) {
+                        currentLevel++; // Increment the level
+                        levelUpDisplayTimer = LEVEL_UP_DISPLAY_DURATION; // Show level up message
+                        document.getElementById('levelUpMessage').style.display = 'block';
+                        // Ensure we don't go out of bounds for levelName if all levels are completed
+                        if (currentLevel < levels.length) {
+                             document.getElementById('levelName').textContent = levels[currentLevel].name;
+                        } else {
+                            document.getElementById('levelName').textContent = "MAX LEVEL!"; // Or some other message
+                        }
+                       
+                        playLevelUpSound();
+                        applyLevelSettings(); // Apply new level's settings
+                        awaitingBossDefeatForLevelUp = false; // Reset the flag
+                    }
+                }
+            }
+
+            // Hide combo display if no combo is active for a while
+            if (comboCounter > 0 && Date.now() - lastEnemyDestroyTime > comboWindow * 2) {
+                comboCounter = 0;
+                document.getElementById('comboDisplay').style.display = 'none';
+            }
+
+            // Update power-ups (only if no boss is active and not awaiting a boss to level up)
+            if (boss === null && !awaitingBossDefeatForLevelUp) {
+                powerUps = powerUps.filter(powerUp => {
+                    powerUp.y += powerUp.speed;
+
+                    // Collision with player
+                    if (
+                        player.x < powerUp.x + player.width &&
+                        player.x + player.width > powerUp.x &&
+                        player.y < powerUp.y + powerUp.height &&
+                        player.y + powerUp.height > powerUp.y
+                    ) {
+                        playPowerUpSound();
+                        switch(powerUp.type) {
+                            case 'rapidFire': 
+                                player.fireRate = 20; 
+                                player.powerUpTimers.rapidFire = 5000; 
+                                console.log('Rapid Fire activated!');
+                                break;
+                            case 'shield':
+                                player.shielded = true;
+                                player.powerUpTimers.shield = 7000; 
+                                console.log('Shield activated!');
+                                break;
+                            case 'multiShot':
+                                player.multiShot = true;
+                                player.powerUpTimers.multiShot = 6000; 
+                                console.log('Multi-Shot activated!');
+                                break;
+                            case 'healthPack':
+                                health = Math.min(health + 1, 3); 
+                                document.getElementById('healthValue').textContent = health;
+                                console.log('Health restored!');
+                                break;
+                        }
+                        return false; // Remove power-up
+                    }
+
+                    return powerUp.y < canvas.height; // Keep if still on screen
+                });
+            }
+            
+            // Update particles
+            particles = particles.filter(p => {
+                p.x += p.speedX;
+                p.y += p.speedY;
+                p.life--;
+                p.size *= 0.95;
+                
+                return p.life > 0; // Keep if still alive
+            });
+
+            // Decrease level up display timer
+            if (levelUpDisplayTimer > 0) {
+                levelUpDisplayTimer--;
+                if (levelUpDisplayTimer === 0) {
+                    document.getElementById('levelUpMessage').style.display = 'none';
+                }
+            }
+        }
+        
+        // Render game
+        function render() {
+            // Clear canvas with trail effect
+            ctx.fillStyle = dreamMode ? 
+                'rgba(0, 0, 0, 0.05)' : 
+                'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw parallax stars
+            stars.forEach(star => {
+                const rgbaMatch = star.color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+                if (rgbaMatch && rgbaMatch[4]) {
+                    ctx.globalAlpha = parseFloat(rgbaMatch[4]) * (1 - star.y / canvas.height); 
+                } else {
+                    ctx.globalAlpha = 1 * (1 - star.y / canvas.height); 
+                }
+                ctx.fillStyle = star.color;
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1; 
+
+            // Draw tunnel segments
+            tunnelSegments.forEach(segment => {
+                const scale = 1000 / (1000 - segment.z);
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.scale(scale, scale);
+                ctx.rotate(segment.rotation);
+                
+                // Dynamic color for tunnel lines based on current level
+                const hue = dreamMode ? 
+                    (300 + time * 50 + segment.z / 10) % 360 : 
+                    (levels[currentLevel].tunnelColorHueBase + time * 50 + segment.z / 10) % 360;
+                const saturation = 100;
+                const lightness = 50 + Math.sin(time * 5 + segment.z / 100) * 10; 
+
+                ctx.strokeStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${0.8 - segment.z / 1000})`;
+                ctx.lineWidth = 2; 
+                
+                // Draw grid
+                ctx.beginPath();
+                const gridSize = 200;
+                const gridCount = 5; 
+                
+                for (let i = -gridCount; i <= gridCount; i++) {
+                    ctx.moveTo(i * gridSize, -gridCount * gridSize);
+                    ctx.lineTo(i * gridSize, gridCount * gridSize);
+                    ctx.moveTo(-gridCount * gridSize, i * gridSize);
+                    ctx.lineTo(gridCount * gridSize, i * gridSize);
+                }
+                ctx.stroke();
+                
+                // Draw mandala/shape
+                if (segment.z > 0 && segment.z < 1000) {
+                    ctx.beginPath();
+                    
+                    const shapeScale = 0.5 + segment.z / 1000;
+                    segment.mandala.forEach((point, i) => {
+                        const x = Math.cos(point.angle) * point.radius * shapeScale;
+                        const y = Math.sin(point.angle) * point.radius * shapeScale;
+                        
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    
+                    ctx.closePath();
+                    ctx.stroke();
+                    
+                    // Draw connecting lines
+                    ctx.strokeStyle = dreamMode ? 
+                        `hsla(${hue + 60}, ${saturation}%, ${lightness}%, ${0.4 - segment.z / 2500})` : 
+                        `hsla(${hue - 60}, ${saturation}%, ${lightness}%, ${0.4 - segment.z / 2500})`;
+                    ctx.lineWidth = 1;
+                    
+                    for (let i = 0; i < segment.mandala.length; i++) {
+                        for (let j = i + 1; j < segment.mandala.length; j++) {
+                            if ((j - i) % 3 === 0 && Math.random() < 0.5) { 
+                                const x1 = Math.cos(segment.mandala[i].angle) * segment.mandala[i].radius * shapeScale;
+                                const y1 = Math.sin(segment.mandala[i].angle) * segment.mandala[i].radius * shapeScale;
+                                const x2 = Math.cos(segment.mandala[j].angle) * segment.mandala[j].radius * shapeScale;
+                                const y2 = Math.sin(segment.mandala[j].angle) * segment.mandala[j].radius * shapeScale;
+                                
+                                ctx.beginPath();
+                                ctx.moveTo(x1, y1);
+                                ctx.lineTo(x2, y2);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+                
+                ctx.restore();
+            });
+            
+            // Draw player
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            
+            // Player glow
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = dreamMode ? '#f0f' : '#0ff';
+            
+            // Draw ship body
+            ctx.fillStyle = dreamMode ? '#f0f' : '#0ff';
+            ctx.beginPath();
+            ctx.moveTo(0, -player.height / 2);
+            ctx.lineTo(player.width / 2, player.height / 2);
+            ctx.lineTo(-player.width / 2, player.height / 2);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Draw ship details
+            ctx.strokeStyle = dreamMode ? '#fff' : '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // Draw engine glow
+            const engineGlow = Math.sin(time * 10) * 0.5 + 0.5;
+            ctx.fillStyle = dreamMode ? 
+                `rgba(255, 0, 255, ${engineGlow})` : 
+                `rgba(0, 255, 255, ${engineGlow})`;
+            ctx.beginPath();
+            ctx.moveTo(-player.width / 3, player.height / 2);
+            ctx.lineTo(0, player.height / 2 + 10);
+            ctx.lineTo(player.width / 3, player.height / 2);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw shield
+            if (player.shielded) {
+                ctx.beginPath();
+                ctx.arc(0, 0, player.width * 1.5, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${0.5 + Math.sin(time * 20) * 0.2})`;
+                ctx.lineWidth = 3;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+            
+            // Draw projectiles (player)
+            projectiles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = p.color;
+                ctx.fillRect(p.x - p.width / 2, p.y - p.height / 2, p.width, p.height);
+                
+                // Add trail
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(p.x - p.width / 2, p.y, p.width, 20);
+                ctx.globalAlpha = 1;
+            });
+
+            // Draw enemy projectiles
+            enemyProjectiles.forEach(ep => {
+                ctx.fillStyle = ep.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = ep.color;
+                // Draw as small circles for enemy projectiles
+                ctx.beginPath();
+                ctx.arc(ep.x, ep.y, ep.width / 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // Reset shadow
+            ctx.shadowBlur = 0;
+            
+            // Draw enemies
+            enemies.forEach(enemy => {
+                ctx.save();
+                ctx.translate(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+                ctx.rotate(enemy.rotation);
+                
+                // Enemy glow
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = enemy.color;
+                
+                // Draw enemy as rotating square
+                ctx.fillStyle = enemy.color;
+                ctx.fillRect(-enemy.width / 2, -enemy.height / 2, enemy.width, enemy.height);
+                
+                // Draw inner details
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-enemy.width / 3, -enemy.height / 3, enemy.width * 2/3, enemy.height * 2/3);
+                
+                ctx.restore();
+            });
+
+            // Draw Boss
+            if (boss) {
+                ctx.save();
+                ctx.translate(boss.x + boss.width / 2, boss.y + boss.height / 2);
+                ctx.rotate(boss.rotation);
+
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = boss.color;
+                ctx.fillStyle = boss.color;
+                ctx.fillRect(-boss.width / 2, -boss.height / 2, boss.width, boss.height); // Main body
+
+                // Add some details to the boss
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(-boss.width / 2 + 10, -boss.height / 2 + 10, boss.width - 20, boss.height - 20);
+                ctx.beginPath();
+                ctx.arc(0, 0, boss.width / 4, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            // Draw power-ups
+            powerUps.forEach(powerUp => {
+                ctx.fillStyle = powerUp.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = powerUp.color;
+                ctx.fillRect(powerUp.x - powerUp.width / 2, powerUp.y - powerUp.height / 2, powerUp.width, powerUp.height);
+                
+                ctx.fillStyle = '#000'; // Text color
+                ctx.font = '14px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(powerUp.label, powerUp.x, powerUp.y);
+            });
+            
+            // Reset shadow
+            ctx.shadowBlur = 0;
+            
+            // Draw particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.life / 30;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw Level Up Message
+            if (levelUpDisplayTimer > 0) {
+                const levelUpElement = document.getElementById('levelUpMessage');
+                levelUpElement.style.display = 'block'; // Already handled in update, but ensure visibility
+                levelUpElement.style.opacity = (levelUpDisplayTimer / LEVEL_UP_DISPLAY_DURATION).toFixed(2); // Fade out
+            }
+        }
+        
+        // Game over
+        function gameOver() {
+            gameActive = false;
+            stopBackgroundMusic(); 
+            playGameOverSound(); 
+            document.getElementById('gameOver').style.display = 'block';
+            if (boss) { // Hide boss bar if game over during boss fight
+                document.getElementById('bossHealthBarContainer').style.display = 'none';
+            }
+            document.getElementById('comboDisplay').style.display = 'none'; // Hide combo display
+            document.getElementById('levelUpMessage').style.display = 'none'; // Hide level up message
+
+            // Ensure dream mode filter is removed on game over
+            dreamMode = false;
+            document.body.style.filter = 'none';
+            document.getElementById('dreamIndicator').style.display = 'none';
+        }
+        
+        // Restart game
+        function restartGame() {
+            // Reset all game state variables
+            score = 0;
+            health = 3;
+            enemies = [];
+            projectiles = [];
+            enemyProjectiles = [];
+            particles = [];
+            powerUps = [];
+            boss = null; // Ensure boss is reset
+            comboCounter = 0;
+            lastEnemyDestroyTime = 0;
+            // nextBossScore = 500; // Removed - no longer used for boss spawning
+            currentLevel = 0; // Reset current level
+            levelUpDisplayTimer = 0; // Reset level up display timer
+            awaitingBossDefeatForLevelUp = false; // Reset the new flag
+
+            // Reset player power-ups
+            player.fireRate = 10;
+            player.shielded = false;
+            player.multiShot = false;
+            player.powerUpTimers = { shield: 0, rapidFire: 0, multiShot: 0 };
+            
+            // Update UI elements
+            document.getElementById('scoreValue').textContent = score;
+            document.getElementById('healthValue').textContent = health;
+            document.getElementById('gameOver').style.display = 'none';
+            document.getElementById('bossHealthBarContainer').style.display = 'none'; 
+            document.getElementById('comboDisplay').style.display = 'none'; 
+            document.getElementById('levelUpMessage').style.display = 'none'; // Hide level up message
+            
+            // Re-start the game through the common entry point
+            startGame(); 
+        }
+
+        // Function to start the game from the splash screen or restart
+        function startGame() {
+            const splashScreen = document.getElementById('splash');
+            // Hide splash screen if it's visible
+            if (splashScreen.style.display !== 'none') {
+                splashScreen.classList.add('hidden'); 
+                splashScreen.addEventListener('transitionend', () => {
+                    splashScreen.style.display = 'none';
+                }, { once: true }); 
+            }
+
+            // Ensure audio context is resumed and game starts
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('AudioContext resumed successfully');
+                    gameActive = true; 
+                    applyLevelSettings(); // Apply initial level settings
+                    gameLoop(); 
+                }).catch(e => {
+                    console.error('Error resuming AudioContext:', e);
+                });
+            } else {
+                gameActive = true; 
+                applyLevelSettings(); // Apply initial level settings
+                gameLoop(); 
+            }
+        }
+        
+        // Main game loop
+        let animationFrameId; // To store the animation frame ID
+        function gameLoop() {
+            if (!gameActive) {
+                cancelAnimationFrame(animationFrameId); // Stop the loop if game is not active
+                return;
+            }
+            update();
+            render();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+        
+        // Event listener for the start button
+        document.getElementById('startBtn').addEventListener('click', startGame);
+
+        // Get info screen elements
+        const infoBtn = document.getElementById('infoBtn');
+        const infoScreen = document.getElementById('infoScreen');
+        const closeInfoBtn = document.getElementById('closeInfoBtn');
+        let wasGameActiveBeforeInfo = false; // New flag to track if game was active before opening info screen
+
+        // Function to open info screen
+        function openInfoScreen() {
+            if (gameActive) { // Check if game was active before pausing
+                wasGameActiveBeforeInfo = true;
+                gameActive = false; // Pause the game
+                stopBackgroundMusic(); // Pause background music
+                cancelAnimationFrame(animationFrameId); // Explicitly stop the animation loop
+            } else {
+                wasGameActiveBeforeInfo = false; // Game was not active (e.g., on splash screen)
+            }
+            infoScreen.classList.add('visible');
+        }
+
+        // Function to close info screen
+        function closeInfoScreen() {
+            infoScreen.classList.remove('visible');
+            if (wasGameActiveBeforeInfo) { // Resume only if game was active before
+                gameActive = true; // Resume the game
+                startBackgroundMusic(); // Resume background music
+                gameLoop(); // Ensure game loop restarts
+            }
+            // If wasGameActiveBeforeInfo is false, it means we were on the splash screen
+            // or game over screen, so no need to resume gameLoop.
+        }
+
+        // Event listeners for info screen
+        infoBtn.addEventListener('click', openInfoScreen);
+        closeInfoBtn.addEventListener('click', closeInfoScreen);
+
+
+        // Initialize the game when the window loads
+        window.onload = init;
+    </script>
+</body>
+</html>
